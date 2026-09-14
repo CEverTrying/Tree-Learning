@@ -4,7 +4,7 @@
 
 ## 安装和启动
 
-最新版本为 `release/windows/TreeLearning-0.1.7-Windows-x64.zip`，本次仅生成免安装压缩包。完整解压后运行其中的 `TreeLearning.exe`。以下安装向导步骤仅适用于此前的安装版。
+最新版本为 `release/windows/TreeLearning-0.1.8-Windows-x64.zip`，本次仅生成免安装压缩包。0.1.8 修复中转站搜索参数兼容性，并增加回复 JSON 的公式和换行转义容错；无法可靠解析时保留原回复。完整解压后运行其中的 `TreeLearning.exe`。以下安装向导步骤仅适用于此前的安装版。
 
 1. 打开安装包，按中文向导选择安装目录。
 2. 安装到当前用户目录，无需管理员权限。

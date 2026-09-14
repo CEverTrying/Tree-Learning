@@ -408,7 +408,7 @@ export default function App() {
           </div>
           <div className="local-status">
             <span />
-            已保存到本机 <small>v0.1.7</small>
+            已保存到本机 <small>v0.1.8</small>
           </div>
         </div>
       </aside>

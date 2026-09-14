@@ -1,0 +1,116 @@
+{
+  "name": "treelearning",
+  "version": "0.1.7",
+  "private": true,
+  "description": "TreeLearning - local-first tree-based AI study companion",
+  "author": "TreeLearning",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "dev": "tsx server/index.ts",
+    "build": "tsc --noEmit && vite build && node scripts/build-server.mjs",
+    "start": "electron .",
+    "desktop": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win nsis zip --x64 --publish never",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:desktop": "node tests/desktop-smoke.mjs"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.8.5",
+    "express": "^5.1.0",
+    "katex": "^0.18.5",
+    "lucide-react": "^0.468.0",
+    "mammoth": "^1.9.1",
+    "multer": "^2.0.2",
+    "pdf-parse": "1.1.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "undici": "^8.10.2",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^43.0.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.2",
+    "vite": "^6.3.5"
+  },
+  "build": {
+    "appId": "app.treelearning.desktop",
+    "productName": "TreeLearning",
+    "icon": "public/icon.png",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-server/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "TreeLearning-${version}-Windows-${arch}.${ext}",
+      "icon": "public/icon.ico",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "zh_CN",
+        "en_US"
+      ],
+      "language": "2052",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TreeLearning 树学",
+      "uninstallDisplayName": "TreeLearning 树学",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "artifactName": "TreeLearning-${version}-Windows-x64-Setup.exe"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.education",
+      "artifactName": "TreeLearning-${version}-macOS-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Education",
+      "artifactName": "TreeLearning-${version}-Linux-${arch}.${ext}"
+    }
+  }
+}

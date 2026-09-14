@@ -51,6 +51,11 @@ test("OpenAI relay search shares credentials, composes with branch reads and sav
     payloads.push(body);
     requests.push({ url: req.url, authorization: req.headers.authorization });
     res.setHeader("Content-Type", "application/json");
+    if ("max_tool_calls" in body) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: "Unsupported parameter: max_tool_calls" }));
+      return;
+    }
     if (rejectSearch) {
       res.statusCode = 400;
       res.end(JSON.stringify({ error: "unsupported web_search RELAY_SECRET" }));
@@ -166,8 +171,7 @@ test("OpenAI relay search shares credentials, composes with branch reads and sav
       { type: "web_search" },
     );
     assert.equal(payloads[0].tools.length, 4);
-    assert.equal(payloads[0].max_tool_calls, 8);
-    assert.equal(payloads[1].max_tool_calls, 7);
+    assert.ok(payloads.every((body) => !("max_tool_calls" in body)));
     assert.ok(!JSON.stringify(payloads[0]).includes("BRANCH_FILE_BODY"));
     assert.ok(JSON.stringify(payloads[1]).includes("BRANCH_FILE_BODY"));
     assert.ok(payloads[1].input.some((item: any) => item.id === nativeCall.id));

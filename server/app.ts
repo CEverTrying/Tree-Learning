@@ -231,7 +231,7 @@ export async function createApp(directory: string) {
               request.body.tools = tools.filter(
                 (tool) => tool.type !== "web_search",
               );
-            request.body.max_tool_calls = Math.max(1, 8 - nativeSearchCount);
+            // Some Responses relays reject max_tool_calls; enforce limits between rounds locally.
           }
           if (round === 8) request.body.tool_choice = "none";
           const body = JSON.stringify(request.body);

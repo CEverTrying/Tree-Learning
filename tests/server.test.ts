@@ -82,6 +82,7 @@ test("API persistence, exact provider payloads, immutable history, cancellation 
   const payloads: any[] = [];
   let hold = false;
   let fail = false;
+  let answerOverride: string | undefined;
   let releaseRequest: (() => void) | undefined;
   const upstream = createServer(async (req, res) => {
     const chunks = [];
@@ -112,7 +113,7 @@ test("API persistence, exact provider payloads, immutable history, cancellation 
                 content: [
                   {
                     type: "output_text",
-                    text: JSON.stringify({
+                    text: answerOverride ?? JSON.stringify({
                       title: "响应接口概括",
                       answer: "RESPONSES ANSWER",
                     }),
@@ -125,7 +126,7 @@ test("API persistence, exact provider payloads, immutable history, cancellation 
             choices: [
               {
                 message: {
-                  content: JSON.stringify({
+                  content: answerOverride ?? JSON.stringify({
                     title: "问题概括",
                     answer: "MODEL ANSWER",
                   }),
@@ -380,6 +381,20 @@ test("API persistence, exact provider payloads, immutable history, cancellation 
   assert.equal(data.nodes.find((n) => n.id === chat)?.answerSource, "model");
   assert.equal(payloads.length, sent + 1);
   assert.deepEqual((await request("/api/debug/requests")).value.requests, []);
+  for (const apiType of ["chat-completions", "responses"]) {
+    await request("/api/settings", { ...settings, apiType, mode: "ai" }, "PUT");
+    answerOverride = '{"title":"新标题","answer":"截断';
+    const rejected = await request("/api/generate", { id: chat, revision: data.revision });
+    assert.equal(rejected.status, 502);
+    assert.match(rejected.value.error, /重新生成/);
+    assert.deepEqual((await request("/api/tree")).value.data, data);
+    answerOverride = String.raw`{"title":"公式","answer":"\[\text{x}\]"}`;
+    const repaired = await request("/api/generate", { id: chat, revision: data.revision });
+    assert.equal(repaired.status, 200);
+    data = repaired.value.data;
+    assert.equal(data.nodes.find((node) => node.id === chat)?.answer, String.raw`\[\text{x}\]`);
+  }
+  answerOverride = undefined;
   const blocked = await fetch(url + "/api/tree", {
     headers: { Origin: "https://untrusted.example" },
   });

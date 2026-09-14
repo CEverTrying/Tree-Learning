@@ -22,9 +22,7 @@ test("answer envelope preserves Markdown and tolerates legacy provider output", 
     { title: "标题", answer },
   );
   assert.deepEqual(parseAnswer(answer), { answer });
-  assert.deepEqual(parseAnswer('{"title":"标题","answer":'), {
-    answer: '{"title":"标题","answer":',
-  });
+  assert.throws(() => parseAnswer('{"title":"标题","answer":'), /重新生成/);
   assert.deepEqual(parseAnswer(JSON.stringify({ title: " ", answer })), {
     answer,
   });
@@ -33,6 +31,36 @@ test("answer envelope preserves Markdown and tolerates legacy provider output", 
       .length,
     24,
   );
+});
+
+test("malformed envelopes recover TeX commands and raw newlines without changing valid JSON", () => {
+  const malformed = String.raw`{"title":"指令编码","answer":"公式\n\[\n\text{byte}=\frac{a}{b}+\nabla x+\theta+\beta+\right)\n\]\n引用：\"原文\"，路径 C:\\Temp"}`;
+  const expected = "公式\n\\[\n\\text{byte}=\\frac{a}{b}+\\nabla x+\\theta+\\beta+\\right)\n\\]\n引用：\"原文\"，路径 C:\\Temp";
+  assert.deepEqual(parseAnswer(malformed), { title: "指令编码", answer: expected });
+  assert.deepEqual(parseAnswer("```json\n" + malformed + "\n```"), {
+    title: "指令编码", answer: expected,
+  });
+  assert.deepEqual(parseAnswer('{"answer":"第一行\n第二行\t结束","title":"换行"}'), {
+    title: "换行", answer: "第一行\n第二行\t结束",
+  });
+  const valid = "\\text{x}\ntext\nabla\tfrac\n\\frac{1}{2}，中文，\\\\";
+  assert.deepEqual(parseAnswer(JSON.stringify({ title: "有效", answer: valid })), {
+    title: "有效", answer: valid,
+  });
+  assert.deepEqual(parseAnswer(String.raw`{"title":"编码","answer":"\u4e2d\n\[x\]"}`), {
+    title: "编码", answer: "中\n\\[x\\]",
+  });
+});
+
+test("unrecoverable envelopes fail instead of exposing JSON or saving partial answers", () => {
+  for (const value of [
+    '{"title":"标题","answer":"截断',
+    '{"title":"标题","answer":"未转义的"引号""}',
+    '{"title":"标题","answer":""}',
+    '{"title":"标题","answer":42}',
+  ]) assert.throws(() => parseAnswer(value), /重新生成/);
+  for (const value of ["普通 **Markdown**", '示例：{"title":"示例"}', '{"example":123}'])
+    assert.deepEqual(parseAnswer(value), { answer: value });
 });
 
 test("automatic titles persist while manually renamed and legacy custom titles are preserved", () => {

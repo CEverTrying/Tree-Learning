@@ -43,7 +43,7 @@ test("project notes are independently editable during generation, stay outside c
       content: "PRIVATE_NOTE",
     });
     const id = result.selectedId!;
-    store.generatingId = chat;
+    store.generatingIds.add(chat);
     await Promise.all([
       store.note({
         action: "save",
@@ -83,7 +83,7 @@ test("project notes are independently editable during generation, stay outside c
       /所属项目/,
     );
     assert.equal(store.data.notes!.length, 1);
-    store.generatingId = null;
+    store.generatingIds.clear();
     const zip = await backup(store.data, store.documents);
     const chunks: Buffer[] = [];
     const done = new Promise<void>((resolve, reject) => {

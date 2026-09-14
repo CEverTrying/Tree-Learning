@@ -85,7 +85,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [generating, setGenerating] = useState<string | null>(null);
+  const [generatingIds, setGeneratingIds] = useState<string[]>([]);
+  const localGenerations = useRef(new Set<string>());
+  const generating = generatingIds.includes(selectedId) ? selectedId : null;
   const [tab, setTab] = useState<"node" | "map">("node");
   const [sidebar, setSidebar] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>(() =>
@@ -104,11 +106,11 @@ export default function App() {
     setData(next);
   };
   async function reload() {
-    const result = await api<{ data: TreeData; generatingId: string | null }>(
+    const result = await api<{ data: TreeData; generatingIds: string[] }>(
       "/api/tree",
     );
     replaceData(result.data);
-    setGenerating(result.generatingId);
+    setGeneratingIds([...new Set([...result.generatingIds, ...localGenerations.current])]);
   }
   useEffect(() => {
     void Promise.all([
@@ -122,12 +124,12 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [notice]);
   useEffect(() => {
-    if (!generating || activeRequest.current) return;
+    if (!generatingIds.length) return;
     const timer = setInterval(() => {
       void reload().catch((e) => setError(e.message));
     }, 1500);
     return () => clearInterval(timer);
-  }, [generating]);
+  }, [generatingIds.length]);
   function select(id: string) {
     if (!dataRef.current?.nodes.some((node) => node.id === id)) return;
     navigation.select(id);
@@ -243,8 +245,10 @@ export default function App() {
     return result;
   }
   async function generate(id: string) {
-    if (!modelReady()) return;
-    setGenerating(id);
+    if (!modelReady() || localGenerations.current.has(id)) return;
+    localGenerations.current.add(id);
+    setGeneratingIds((old) => [...new Set([...old, id])]);
+    setError("");
     try {
       const result = await api<{ data: TreeData }>("/api/generate", {
         method: "POST",
@@ -252,8 +256,12 @@ export default function App() {
       });
       replaceData(result.data);
       playReplySound();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "生成失败");
     } finally {
-      setGenerating(null);
+      localGenerations.current.delete(id);
+      setGeneratingIds((old) => old.filter((item) => item !== id));
+      await reload().catch(() => {});
     }
   }
   async function submitQuestion(event: FormEvent) {
@@ -262,7 +270,7 @@ export default function App() {
     if (!question) return;
     if (!modelReady()) return;
     const parentId = selectedId;
-    await run(async () => {
+    const created = await run(async () => {
       const result = await command({
         type: "create",
         parentId,
@@ -272,8 +280,9 @@ export default function App() {
       });
       setDrafts((current) => ({ ...current, [parentId]: "" }));
       setTab("node");
-      await generate(result.selectedId);
+      return result.selectedId;
     });
+    if (created) void generate(created);
   }
   function modelReady() {
     if (
@@ -335,6 +344,10 @@ export default function App() {
   const children = childrenOf(data, node.id);
   const editable = isEditable(data, node.id);
   const working = busy || !!generating;
+  const contextLocked = generatingIds.some((id) =>
+    data.nodes.some((item) => item.id === id) &&
+    lineage(data, id).some((item) => item.id === node.id),
+  );
   const Icon = nodeIcons[node.kind];
   return (
     <div className="app-shell">
@@ -367,7 +380,7 @@ export default function App() {
             onClick={() =>
               setDialog({ type: "project", parentId: data.rootId })
             }
-            disabled={working}
+            disabled={busy}
           >
             <Plus size={16} />
             新建项目
@@ -402,7 +415,7 @@ export default function App() {
             <IconButton
               icon={Upload}
               label="恢复备份"
-              disabled={working}
+              disabled={busy || generatingIds.length > 0}
               onClick={() => importRef.current?.click()}
             />
           </div>
@@ -510,14 +523,14 @@ export default function App() {
                 <IconButton
                   icon={Pencil}
                   label="编辑节点"
-                  disabled={!editable || working}
+                  disabled={!editable || busy || contextLocked}
                   onClick={() => setDialog({ type: "edit", id: node.id })}
                 />
                 {node.kind !== "root" && (
                   <IconButton
                     icon={Trash2}
                     label="删除节点"
-                    disabled={working}
+                    disabled={busy || contextLocked}
                     onClick={() => setDialog({ type: "delete", id: node.id })}
                   />
                 )}
@@ -630,7 +643,7 @@ export default function App() {
                             icon={RefreshCw}
                             label="重新生成回复"
                             disabled={!editable || working}
-                            onClick={() => void run(() => generate(node.id))}
+                            onClick={() => void generate(node.id)}
                           />
                         </div>
                       </div>
@@ -647,7 +660,7 @@ export default function App() {
                           <button
                             className="secondary"
                             disabled={!editable || working}
-                            onClick={() => void run(() => generate(node.id))}
+                            onClick={() => void generate(node.id)}
                           >
                             <RefreshCw size={14} />
                             生成回复
@@ -901,7 +914,7 @@ export default function App() {
                           onClick={() =>
                             void api("/api/cancel", {
                               method: "POST",
-                              body: "{}",
+                              body: JSON.stringify({ id: node.id }),
                             }).catch((e) => setError(e.message))
                           }
                         >
@@ -1010,7 +1023,7 @@ export default function App() {
                   ? nodeById(data, dialog.id).kind
                   : dialog.type
               }
-              busy={working}
+              busy={busy}
               onSave={async (fields) => {
                 await run(async () => {
                   if (dialog.type === "edit")
@@ -1154,7 +1167,7 @@ export default function App() {
                 </button>
                 <button
                   className="primary"
-                  disabled={working}
+                  disabled={busy || generatingIds.length > 0}
                   onClick={() =>
                     void run(async () => {
                       const body = new FormData();

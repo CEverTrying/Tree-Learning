@@ -62,7 +62,7 @@ export async function createApp(directory: string) {
   });
   app.use(express.json({ limit: "40mb" }));
   app.get("/api/tree", (_req, res) =>
-    res.json({ data: store.data, generatingId: store.generatingId }),
+    res.json({ data: store.data, generatingId: store.generatingId, generatingIds: [...store.generatingIds] }),
   );
   app.get("/api/backup", async (_req, res) => {
     const zip = await backup(store.data, store.documents);
@@ -121,8 +121,9 @@ export async function createApp(directory: string) {
       ),
     }),
   );
-  app.post("/api/cancel", (_req, res) => {
-    for (const controller of pending.values()) controller.abort();
+  app.post("/api/cancel", (req, res) => {
+    if (typeof req.body?.id === "string") pending.get(req.body.id)?.abort();
+    else for (const controller of pending.values()) controller.abort();
     res.json({ ok: true });
   });
   app.post("/api/generate", async (req, res) => {
@@ -137,7 +138,8 @@ export async function createApp(directory: string) {
     let debugRequest: DebugRequest | undefined;
     try {
       const snapshot = await store.exclusive(() => {
-        store.assertAvailable(revision);
+        store.assertRevision(revision);
+        if (store.generatingIds.has(id)) throw new TreeError("该节点正在生成回答");
         const node = nodeById(store.data, id);
         if (node.kind !== "chat" || !isEditable(store.data, id))
           throw new TreeError("只能为未锁定的问答叶节点生成回答");
@@ -164,7 +166,7 @@ export async function createApp(directory: string) {
           throw new TreeError(
             "OpenAI 内置搜索需要 Responses API，请在模型设置中切换接口类型",
           );
-        store.generatingId = id;
+        store.generatingIds.add(id);
         pending.set(id, controller);
         acquired = true;
         return { data: store.data, settings: { ...store.settings } };
@@ -364,7 +366,7 @@ export async function createApp(directory: string) {
       res.off("close", disconnect);
       if (acquired) {
         pending.delete(id);
-        store.generatingId = null;
+        store.generatingIds.delete(id);
       }
     }
   });

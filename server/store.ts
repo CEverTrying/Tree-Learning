@@ -5,6 +5,7 @@ import {
   applyCommand,
   defaultSettings,
   initialTree,
+  lineage,
   TreeError,
   validateTree,
   withAnswer,
@@ -78,7 +79,10 @@ export class Store {
   readonly documents: Documents;
   data!: TreeData;
   settings: Settings = { ...defaultSettings };
-  generatingId: string | null = null;
+  readonly generatingIds = new Set<string>();
+  get generatingId() {
+    return this.generatingIds.values().next().value ?? null;
+  }
   workspaceState: Record<string, unknown> = {};
   private queue: Promise<unknown> = Promise.resolve();
   constructor(public directory: string) {
@@ -116,7 +120,10 @@ export class Store {
     return result;
   }
   assertAvailable(revision: number) {
-    if (this.generatingId) throw new TreeError("正在生成回答，请先停止生成");
+    if (this.generatingIds.size) throw new TreeError("正在生成回答，请先停止生成");
+    this.assertRevision(revision);
+  }
+  assertRevision(revision: number) {
     if (revision !== this.data.revision)
       throw new TreeError("数据已更新，请刷新后重试");
   }
@@ -139,7 +146,12 @@ export class Store {
   }
   command(command: Command, revision: number) {
     return this.exclusive(async () => {
-      this.assertAvailable(revision);
+      this.assertRevision(revision);
+      for (const id of this.generatingIds) {
+        const protectedIds = new Set(lineage(this.data, id).map((node) => node.id));
+        if (command.type === "create" ? command.parentId === id : protectedIds.has(command.id))
+          throw new TreeError("该节点正在生成回答或属于其上下文，请先停止对应节点的生成");
+      }
       const result = applyCommand(this.data, command);
       await this.persist(result.data);
       return { ...result, data: this.data };

@@ -1,12 +1,12 @@
 # TreeLearning 树学
 
-参考 `/home/cxh/study-companion` 实现的本地 AI 伴学软件。沿用 React、Markdown / LaTeX、文件解析和模型接口适配方式，新增 Electron 桌面入口，将整个学习空间统一为一棵树。
+沿用 React、Markdown / LaTeX、文件解析和模型接口适配方式，新增 Electron 桌面入口，将整个学习空间统一为一棵树。
 
 ## 本次交付
 
 源码在本目录使用 Git 保存版本历史，初始基线为 0.1.7。后续完成独立修改并验证后提交；依赖、构建产物、免安装包、本机学习数据、密钥配置和测试截图不纳入源码历史。学习数据仍通过应用内的完整 ZIP 备份保存。可使用 `git log --oneline` 查看记录、`git diff` 查看尚未提交的修改。
 
-- Windows 免安装版（最新）：`release/windows/TreeLearning-0.1.8-Windows-x64.zip`。修复中转站不支持 `max_tool_calls` 时的联网搜索错误，增加回复 JSON 中公式反斜杠和换行的容错；无法可靠解析时保留原回复并提示重试。完整解压后运行 `TreeLearning.exe`，无需 Node.js。详见 [Windows 使用说明](WINDOWS.md)。
+- Windows 免安装版（最新）：`release/windows/TreeLearning-0.1.8-Windows-x64.zip`。增加回复 JSON 中公式反斜杠和换行的容错；无法可靠解析时保留原回复并提示重试。完整解压后运行 `TreeLearning.exe`，无需 Node.js。详见 [Windows 使用说明](WINDOWS.md)。
 - Windows 安装版：保留此前版本，本次仅生成免安装 ZIP。
 - Linux：`release/TreeLearning-0.1.0-Linux-x86_64.AppImage`。保留前一轮构建，本轮 Windows 桌面改进尚未重新打包到 Linux。
 - 源码：本目录及同级 `TreeLearning-source.tar.gz`。
@@ -94,17 +94,7 @@ Responses API 使用 `store: false`、`truncation: "disabled"`，逐次发送完
 
 0.1.6 已包含联网工具。模型设置中打开“联网搜索”，默认使用 **OpenAI 内置搜索**，接口自动切换为 Responses API。搜索复用当前 API 地址、模型和密钥，向所配置中转站的 `/responses` 端点发送 `tools: [{type: "web_search"}]`，不会绕过中转站直连 OpenAI，也不需要 Tavily 密钥。中转站和所选模型必须支持该内置工具；仅支持 Chat Completions 或普通函数调用的中转站不一定可用。不兼容时显示错误，不会静默改用其他服务。参见 [OpenAI Web Search](https://developers.openai.com/api/docs/guides/tools-web-search)。
 
-“搜索服务”也可选择 **Tavily**，这种方式需要独立的 Tavily API 密钥，支持现有的两种接口。已有 Tavily 密钥的旧配置自动保留该服务。搜索和网页提取可能消耗相应服务的额度；参见 [Tavily Search](https://docs.tavily.com/documentation/api-reference/endpoint/search) 和 [Tavily Extract](https://docs.tavily.com/documentation/api-reference/endpoint/extract)。以下自定义联网工具仅用于 Tavily：
-
-- `web_search`：检索公开网页，每次最多 5 条结果，返回标题、URL 和摘要。
-- `read_web_page`：提取公开网页文字，每次最多 2 万字符，截断会明确标记；不下载本机或内网文件。
-- `list_branch_files`、`search_branch_files`、`read_branch_file`：列出、检索和按需读取当前节点及祖先路径中的文件，包括已导入并提取文字的 PDF。不能跨分支读取。
-
-Tavily 每次回答最多执行 8 次联网工具，单次联网超时 20 秒。OpenAI 搜索由中转站执行，使用 `max_tool_calls` 提交剩余调用额度（初始 8 次），达到额度后在后续请求中移除搜索工具；实际执行由服务端实现决定。停止生成会取消本机正在等待的请求。调试模式显示实际请求和工具调用记录，包括 OpenAI 返回的 `web_search_call`。回答下方保存 OpenAI `url_citation` 或 Tavily 来源链接，来源随学习树备份保存，不自动把网页正文加入后续上下文。文件工具仍只能读取当前节点及祖先路径，演示模式不执行联网请求。
-
-模型密钥和 Tavily 密钥共同遵循“在本机保存密钥（明文）”设置，默认退出后清除。仅选择 Tavily 时要求补充独立搜索密钥。联网服务使用模拟响应验证，新增 OpenAI 中转站测试覆盖路径、密钥复用、与文件工具组合调用、来源保存、调试记录及不兼容错误；尚未使用真实中转站完成外部搜索。当前共 21 项核心／服务端测试。
-
-支持文本型 PDF、DOCX、Markdown、UTF-8 TXT、CSV、JSON 和常见代码文件。已取消本地文件的 15 MB 和 30 万字符上限。上传流式写入磁盘，原文件和提取的正文独立保存在文件库中，界面和 AI 分段读取；树节点只保存文件引用。文本文件增量解析，PDF、DOCX 在独立工作线程中解析，极大文档仍受可用内存和磁盘空间影响；扫描 PDF 需要先 OCR。当前节点及祖先路径中的文件正文仅在 AI 调用工具读取后进入本次请求，不自动展开全文；路径之外的文件无法列出、搜索或读取，即使属于同一项目。超过 50 万字符的初始模型上下文会报错，不会静默截断。
+支持文本型 PDF、DOCX、Markdown、UTF-8 TXT、CSV、JSON 和常见代码文件。上传流式写入磁盘，原文件和提取的正文独立保存在文件库中，界面和 AI 分段读取；树节点只保存文件引用。文本文件增量解析，PDF、DOCX 在独立工作线程中解析，极大文档仍受可用内存和磁盘空间影响；扫描 PDF 需要先 OCR。当前节点及祖先路径中的文件正文仅在 AI 调用工具读取后进入本次请求，不自动展开全文；路径之外的文件无法列出、搜索或读取，即使属于同一项目。超过 50 万字符的初始模型上下文会报错，不会静默截断。
 
 ### AI 按需阅读分支文件
 

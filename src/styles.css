@@ -1747,12 +1747,30 @@ a {
 .notes-back {
   display: none;
 }
-.excerpt-selection {
-  position: sticky;
-  top: 8px;
-  z-index: 3;
-  box-shadow: 0 2px 8px #0002;
-  margin-left: auto;
+.selection-menu {
+  position: fixed;
+  z-index: 30;
+  width: 200px;
+  max-width: calc(100vw - 16px);
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 18px #0002;
+}
+.selection-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 13px;
+}
+.selection-menu button:hover,
+.selection-menu button:focus-visible {
+  background: #edf3ef;
 }
 @media (max-width: 899px) {
   .with-notes > .main-pane {

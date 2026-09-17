@@ -39,6 +39,7 @@ import TreePanel, { nodeIcons } from "./TreePanel";
 import TreeMap from "./TreeMap";
 import NodeScroll from "./NodeScroll";
 import FileReference from "./FileReference";
+import { SelectionMenu } from "./SelectionMenu";
 import useReplySound from "./useReplySound";
 import NotesPanel, { type NotesHandle } from "./NotesPanel";
 import { QuickJump, useNavigation } from "./navigation";
@@ -81,7 +82,7 @@ export default function App() {
   const [quickJump, setQuickJump] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const notesRef = useRef<NotesHandle>(null);
-  const [excerptText, setExcerptText] = useState("");
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const [settings, setSettings] = useState<Settings>({ ...defaultSettings });
   const [dialog, setDialog] = useState<Dialog>(null);
   const [error, setError] = useState("");
@@ -141,7 +142,6 @@ export default function App() {
   function select(id: string) {
     if (!dataRef.current?.nodes.some((node) => node.id === id)) return;
     navigation.select(id);
-    setExcerptText("");
     if (id === dataRef.current?.rootId) setTab("node");
     setSidebar(false);
   }
@@ -187,23 +187,6 @@ export default function App() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [dialog, quickJump]);
-  useEffect(() => {
-    const change = () => {
-      const selection = window.getSelection();
-      const container = selection?.rangeCount
-        ? selection.getRangeAt(0).commonAncestorContainer
-        : null;
-      const element =
-        container instanceof Element ? container : container?.parentElement;
-      setExcerptText(
-        element?.closest(".question-section, .answer-section")
-          ? selection!.toString().trim()
-          : "",
-      );
-    };
-    document.addEventListener("selectionchange", change);
-    return () => document.removeEventListener("selectionchange", change);
-  }, []);
   async function excerpt(text: string) {
     const snapshot = dataRef.current;
     if (!snapshot || !text.trim()) return;
@@ -592,17 +575,15 @@ export default function App() {
                 onParent={select}
               >
                 {node.kind === "chat" ? (
-                  <div className="conversation">
-                    {excerptText && (
-                      <button
-                        className="secondary excerpt-selection"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => void excerpt(excerptText)}
-                      >
-                        <NotebookPen size={15} />
-                        摘录选中文字
-                      </button>
-                    )}
+                  <SelectionMenu key={node.id} onError={setError} quote={(text) => {
+                    const quote = text.split(/\r?\n/).map((line) => `> ${line}`).join("\n");
+                    setDrafts((old) => ({ ...old, [node.id]: `${old[node.id] || ""}${old[node.id] ? "\n\n" : ""}引用「${node.title}」：\n${quote}\n\n` }));
+                    requestAnimationFrame(() => {
+                      const input = composerRef.current;
+                      input?.focus();
+                      input?.setSelectionRange(input.value.length, input.value.length);
+                    });
+                  }}>
                     <section className="question-section">
                       <div className="section-caption">
                         <span className="avatar user">我</span>
@@ -739,7 +720,7 @@ export default function App() {
                         </div>
                       )}
                     </section>
-                  </div>
+                  </SelectionMenu>
                 ) : (
                   <section className="content-section">
                     <div className="section-heading">
@@ -872,6 +853,7 @@ export default function App() {
                 </div>
                 <div className="composer">
                   <textarea
+                    ref={composerRef}
                     aria-label="新问题"
                     enterKeyHint="send"
                     placeholder="写下新的问题…"

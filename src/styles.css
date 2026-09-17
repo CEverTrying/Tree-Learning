@@ -529,6 +529,30 @@ a {
   justify-content: space-between;
   gap: 12px;
 }
+.composer-children {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  padding: 0 0 4px;
+  margin-bottom: 4px;
+}
+.composer-children button {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+  background: #f2f6f3;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--green);
+}
+.composer-children button:hover {
+  background: #e5eee8;
+}
 .children-section {
   padding-top: 25px;
 }

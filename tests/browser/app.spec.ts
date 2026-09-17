@@ -55,7 +55,7 @@ test("tree workflow, file context, branch isolation, leaf edit, persistence and 
     .fill("从几何直觉理解向量、矩阵和线性变换。PROJECT_MARKER");
   await page.getByRole("button", { name: "创建节点" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("线性代数");
-  await page.getByRole("button", { name: "添加文件", exact: true }).click();
+  await page.getByRole("button", { name: "添加文件节点", exact: true }).click();
   await page
     .getByRole("dialog")
     .locator('input[type="file"]')
@@ -454,7 +454,7 @@ test("file references and full ZIP backup restore", async ({
     .getByRole("tree")
     .getByRole("button", { name: "文件库测试", exact: true })
     .click();
-  await page.getByRole("button", { name: "添加文件", exact: true }).click();
+  await page.getByRole("button", { name: "添加文件节点", exact: true }).click();
   await page
     .getByRole("dialog")
     .locator('input[type="file"]')
@@ -701,7 +701,7 @@ test("AI configuration, debug request inspection and mode switching", async ({
       .getByLabel("学习内容（可选）", { exact: true })
       .fill("DEBUG_PROJECT_CONTEXT");
     await page.getByRole("button", { name: "创建节点", exact: true }).click();
-    await page.getByRole("button", { name: "添加文件", exact: true }).click();
+    await page.getByRole("button", { name: "添加文件节点", exact: true }).click();
     await page.getByLabel("名称", { exact: true }).fill("项目教材.md");
     await page
       .getByLabel("文件正文", { exact: true })

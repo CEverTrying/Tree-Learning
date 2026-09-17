@@ -122,7 +122,7 @@ try {
   await page
     .getByRole("heading", { name: "Windows 伴学验证", level: 1 })
     .waitFor();
-  await page.getByRole("button", { name: "添加文件", exact: true }).click();
+  await page.getByRole("button", { name: "添加文件节点", exact: true }).click();
   await page
     .getByRole("dialog")
     .locator('input[type="file"]')

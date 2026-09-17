@@ -748,7 +748,7 @@ export default function App() {
                     )}
                   </section>
                 )}
-                <section className="children-section">
+                {node.kind === "root" && <section className="children-section">
                   <div className="section-heading">
                     <h2>
                       {node.kind === "root" ? "项目" : "子节点"}
@@ -831,11 +831,27 @@ export default function App() {
                       )}
                     </div>
                   )}
-                </section>
+                </section>}
               </NodeScroll>
             )}
             {node.kind !== "root" && (
               <form className="composer-area" onSubmit={submitQuestion}>
+                {children.length > 0 && (
+                  <nav className="composer-children" aria-label="直接子节点">
+                    {children.map((child) => (
+                      <button
+                        type="button"
+                        key={child.id}
+                        title={child.title}
+                        aria-label={child.title}
+                        onClick={() => select(child.id)}
+                      >
+                        {[...child.title].slice(0, 6).join("")}
+                        {[...child.title].length > 6 ? "…" : ""}
+                      </button>
+                    ))}
+                  </nav>
+                )}
                 <div className="composer-parent">
                   <GitBranch size={13} />
                   <span>接续：{node.title}</span>

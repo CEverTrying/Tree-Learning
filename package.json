@@ -15,6 +15,7 @@
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win nsis zip --x64 --publish never",
+    "dist:mac": "npm run build && electron-builder --mac zip --arm64 --publish never",
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "test:desktop": "node tests/desktop-smoke.mjs"

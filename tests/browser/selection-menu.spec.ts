@@ -28,6 +28,13 @@ test("selection stays quiet; right click quotes a snapshot or copies text", asyn
   await draft.fill("已有草稿");
   await select();
   await answer.click({ button: "right" });
+  const selectedRect = await page.evaluate(() => {
+    const rect = getSelection()!.getRangeAt(0).getClientRects()[0];
+    return { left: rect.left, bottom: rect.bottom };
+  });
+  const menuRect = await page.getByRole("menu").boundingBox();
+  expect(Math.abs(menuRect!.x - selectedRect.left)).toBeLessThan(2);
+  expect(Math.abs(menuRect!.y - selectedRect.bottom - 6)).toBeLessThan(2);
   await page.getByRole("menuitem", { name: "引用到对话" }).click();
   await expect(draft).toHaveValue("已有草稿\n\n引用「测试问题」：\n> 这是回答第一段。\n\n");
   await expect(draft).toBeFocused();

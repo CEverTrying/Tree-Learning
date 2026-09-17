@@ -20,6 +20,8 @@ import {
   LoaderCircle,
   LockKeyhole,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   MessageSquare,
   Network,
   Pencil,
@@ -90,6 +92,12 @@ export default function App() {
   const generating = generatingIds.includes(selectedId) ? selectedId : null;
   const [tab, setTab] = useState<"node" | "map">("node");
   const [sidebar, setSidebar] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(() =>
+    readLocal<boolean>("treelearning-sidebar-hidden", false),
+  );
+  useEffect(() => {
+    writeLocal("treelearning-sidebar-hidden", sidebarHidden);
+  }, [sidebarHidden]);
   const [drafts, setDrafts] = useState<Record<string, string>>(() =>
     readLocal("treelearning-question-drafts", {}),
   );
@@ -358,7 +366,7 @@ export default function App() {
           onClick={() => setSidebar(false)}
         />
       )}
-      <aside className={`sidebar ${sidebar ? "mobile-open" : ""}`}>
+      <aside id="learning-sidebar" className={`sidebar ${sidebar ? "mobile-open" : ""} ${sidebarHidden ? "desktop-hidden" : ""}`}>
         <button
           className="brand"
           onClick={() => {
@@ -427,6 +435,17 @@ export default function App() {
       </aside>
       <div className="workspace">
         <header className="topbar">
+          <button
+            type="button"
+            className="icon-button sidebar-toggle"
+            title={sidebarHidden ? "展开侧栏" : "收起侧栏"}
+            aria-label={sidebarHidden ? "展开侧栏" : "收起侧栏"}
+            aria-expanded={!sidebarHidden}
+            aria-controls="learning-sidebar"
+            onClick={() => setSidebarHidden((hidden) => !hidden)}
+          >
+            {sidebarHidden ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+          </button>
           <div className="navigation-actions">
             <IconButton
               icon={ArrowLeft}
@@ -517,7 +536,7 @@ export default function App() {
                     {editable ? "叶节点" : "已锁定"}
                   </span>
                 </div>
-                <h1>{node.title}</h1>
+                <h1 title={node.title}>{node.title}</h1>
               </div>
               <div className="node-actions">
                 <IconButton

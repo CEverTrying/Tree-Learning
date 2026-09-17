@@ -358,7 +358,7 @@ a {
   background: #fff;
 }
 .topbar {
-  height: 65px;
+  height: 52px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -429,20 +429,28 @@ a {
 }
 .node-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: 30px 38px 22px;
+  padding: 12px 28px;
   gap: 18px;
 }
 .node-header > div:first-child {
   min-width: 0;
+}
+.node-header h1 {
+  font-size: 20px;
+  line-height: 1.3;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .eyebrow {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  margin-bottom: 10px;
+  margin-bottom: 4px;
 }
 .node-state {
   margin-left: 7px;
@@ -460,14 +468,14 @@ a {
 .node-actions {
   display: flex;
   flex-shrink: 0;
-  margin-top: 23px;
+  margin-top: 0;
 }
 .view-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
   padding: 0 38px;
   gap: 26px;
-  height: 44px;
+  height: 36px;
   flex-shrink: 0;
 }
 .view-tabs button {
@@ -1377,6 +1385,11 @@ a {
 .sidebar-backdrop {
   display: none;
 }
+@media (min-width: 760px) {
+  .sidebar.desktop-hidden {
+    display: none;
+  }
+}
 @media (min-width: 1600px) {
   .node-header {
     padding-left: 55px;
@@ -1421,7 +1434,7 @@ a {
     width: 235px;
   }
   .node-header {
-    padding: 27px 30px 20px;
+    padding: 12px 24px;
   }
   .node-scroll {
     padding: 25px 30px;
@@ -1434,6 +1447,9 @@ a {
   }
 }
 @media (max-width: 759px) {
+  .sidebar-toggle {
+    display: none;
+  }
   .app-shell {
     min-height: 0;
   }
@@ -1473,21 +1489,21 @@ a {
     font-size: 10px;
   }
   .node-header {
-    padding: 22px 20px 17px;
+    padding: 10px 16px;
     gap: 8px;
   }
   .node-header h1 {
-    font-size: 21px;
+    font-size: 18px;
   }
   .node-actions {
-    margin-top: 20px;
+    margin-top: 0;
   }
   .eyebrow {
-    margin-bottom: 9px;
+    margin-bottom: 4px;
   }
   .view-tabs {
     padding: 0 20px;
-    height: 41px;
+    height: 36px;
   }
   .node-scroll {
     padding: 23px 20px 28px;

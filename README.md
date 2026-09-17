@@ -6,7 +6,7 @@
 
 源码在本目录使用 Git 保存版本历史，初始基线为 0.1.7。后续完成独立修改并验证后提交；依赖、构建产物、免安装包、本机学习数据、密钥配置和测试截图不纳入源码历史。学习数据仍通过应用内的完整 ZIP 备份保存。可使用 `git log --oneline` 查看记录、`git diff` 查看尚未提交的修改。
 
-- Windows 免安装版（最新）：`release/windows/TreeLearning-0.1.8-Windows-x64.zip`。修复中转站不支持 `max_tool_calls` 时的联网搜索错误，增加回复 JSON 中公式反斜杠和换行的容错；无法可靠解析时保留原回复并提示重试。完整解压后运行 `TreeLearning.exe`，无需 Node.js。详见 [Windows 使用说明](WINDOWS.md)。
+- Windows 免安装版（最新）：`release/windows/TreeLearning-0.1.9-Windows-x64.zip`。支持不同分支并行生成、桌面侧栏收起、紧凑标题，移除顶部路径栏；选中文字后右键引用到对话或复制，子节点以短标题按钮显示在输入框上方。保留 0.1.8 的中转站兼容及回复格式容错修复。完整解压后运行 `TreeLearning.exe`，无需 Node.js。详见 [Windows 使用说明](WINDOWS.md)。
 - Windows 安装版：保留此前版本，本次仅生成免安装 ZIP。
 - Linux：`release/TreeLearning-0.1.0-Linux-x86_64.AppImage`。保留前一轮构建，本轮 Windows 桌面改进尚未重新打包到 Linux。
 - 源码：本目录及同级 `TreeLearning-source.tar.gz`。

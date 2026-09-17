@@ -231,7 +231,11 @@ try {
   );
   await page.getByRole("button", { name: "收起项目笔记", exact: true }).click();
   await page
-    .getByRole("navigation", { name: "节点路径" })
+    .getByRole("tree")
+    .getByRole("button", { name: "中文学习资料.md", exact: true })
+    .click();
+  await page
+    .getByRole("tree")
     .getByRole("button", { name: "Windows 伴学验证", exact: true })
     .click();
   await page
@@ -253,7 +257,7 @@ try {
   await page.getByRole("button", { name: "发送问题" }).click();
   await page.getByText("演示回复 · 未调用 AI").waitFor();
   await page
-    .getByRole("navigation", { name: "节点路径" })
+    .getByRole("tree")
     .getByRole("button", { name: "向量的线性组合是什么？", exact: true })
     .click();
   assert.equal(
@@ -302,7 +306,7 @@ try {
   await page.getByRole("button", { name: "关闭弹窗" }).click();
   await page.screenshot({ path: screenshot });
   await page
-    .getByRole("navigation", { name: "节点路径" })
+    .getByRole("tree")
     .getByRole("button", { name: "向量的线性组合是什么？", exact: true })
     .click();
   await page.getByRole("button", { name: "删除节点", exact: true }).click();

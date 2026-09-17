@@ -366,33 +366,8 @@ a {
   gap: 12px;
   padding: 0 28px;
 }
-.breadcrumbs {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  overflow: auto;
-  scrollbar-width: none;
-}
-.breadcrumbs > span {
-  display: flex;
-  align-items: center;
-  min-width: 30px;
-  flex-shrink: 0;
-  gap: 7px;
-  color: #a1a8a2;
-}
-.breadcrumbs button {
-  font-size: 11px;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #89958c;
-  padding: 5px 9px 5px 0;
-}
-.breadcrumbs > span:last-child button {
-  color: #425849;
+.topbar > .model-status {
+  margin-left: auto;
 }
 .model-status {
   font-size: 11px;
@@ -1481,9 +1456,6 @@ a {
     padding: 0 10px;
     gap: 6px;
   }
-  .breadcrumbs button {
-    max-width: 100px;
-  }
   .model-status {
     max-width: 115px;
     font-size: 10px;
@@ -1793,9 +1765,6 @@ a {
   .topbar {
     padding: 0 10px;
     gap: 3px;
-  }
-  .topbar .breadcrumbs {
-    display: none;
   }
   .topbar .model-status {
     margin-left: auto;

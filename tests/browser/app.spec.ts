@@ -100,7 +100,7 @@ test("tree workflow, file context, branch isolation, leaf edit, persistence and 
   await page.getByRole("button", { name: "发送问题" }).click();
   await expect(page.getByText("演示回复 · 未调用 AI")).toBeVisible();
   await page
-    .getByRole("navigation", { name: "节点路径" })
+    .getByRole("tree")
     .getByRole("button", { name: "如何从几何角度理解线性组合？", exact: true })
     .click();
   await expect(
@@ -111,8 +111,9 @@ test("tree workflow, file context, branch isolation, leaf edit, persistence and 
   await expect(page.locator(".react-flow__node")).toHaveCount(4);
   await page.screenshot({ path: "screenshots/tree-map.png", fullPage: true });
   await page.getByRole("tab", { name: "节点内容" }).click();
+  await page.getByRole("tree").getByRole("button", { name: "01-向量与空间.md", exact: true }).click();
   await page
-    .getByRole("navigation", { name: "节点路径" })
+    .getByRole("tree")
     .getByRole("button", { name: "线性代数", exact: true })
     .click();
   await page.getByLabel("新问题", { exact: true }).fill("什么是矩阵？");
@@ -301,10 +302,7 @@ test("sidebar follows one parent and direct children; map stays within the proje
     .getByRole("button", { name: "关闭侧栏", exact: true })
     .click({ position: { x: 380, y: 100 } });
   await page.setViewportSize({ width: 1440, height: 960 });
-  await page
-    .getByRole("navigation", { name: "节点路径" })
-    .getByRole("button", { name: "树学", exact: true })
-    .click();
+  await page.locator(".brand").click();
   await expect(page.locator(".tree-map")).toHaveCount(0);
   await open("项目乙");
   await page.getByRole("tab", { name: "学习树图" }).click();

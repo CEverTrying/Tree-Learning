@@ -454,16 +454,6 @@ export default function App() {
             className="mobile-menu"
             onClick={() => setSidebar(true)}
           />
-          <nav className="breadcrumbs" aria-label="节点路径">
-            {path.map((part, i) => (
-              <span key={part.id}>
-                {i > 0 && <ChevronRight size={13} />}
-                <button onClick={() => select(part.id)} title={part.title}>
-                  {part.kind === "root" ? "树学" : part.title}
-                </button>
-              </span>
-            ))}
-          </nav>
           <button
             className={`model-status ${settings.mode}`}
             title={

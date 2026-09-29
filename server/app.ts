@@ -1,3 +1,5 @@
+import { isDeepSeekApi } from "../src/model-providers";
+import { compatibleTools } from "./model-api";
 import express from "express";
 import multer from "multer";
 import { mkdir, rm } from "node:fs/promises";
@@ -79,7 +81,7 @@ export async function createApp(directory: string) {
   app.post("/api/commands", async (req, res) => {
     if (
       !req.body?.command ||
-      !["create", "edit", "delete"].includes(req.body.command.type)
+      !["create", "edit", "delete", "set-main"].includes(req.body.command.type)
     )
       throw new TreeError("节点操作无效");
     res.json(await store.command(req.body.command, req.body.revision));
@@ -157,6 +159,9 @@ export async function createApp(directory: string) {
           throw new TreeError(
             "联网搜索已开启，请在模型设置填写 Tavily API 密钥或关闭联网搜索",
           );
+        if (store.settings.mode !== "demo" && store.settings.webEnabled &&
+            store.settings.webProvider === "openai" && isDeepSeekApi(store.settings.baseUrl))
+          throw new TreeError("DeepSeek API 不提供内置联网搜索，请选择 Tavily 并填写搜索密钥");
         if (
           store.settings.mode !== "demo" &&
           store.settings.webEnabled &&
@@ -212,10 +217,10 @@ export async function createApp(directory: string) {
           controller.signal,
         );
         const web = new WebTools(snapshot.settings, controller.signal);
-        const tools = [
+        const tools = compatibleTools(snapshot.settings.baseUrl, [
           ...(files.files.size ? files.definitions(request.apiType) : []),
           ...web.definitions(request.apiType),
-        ];
+        ]);
         if (tools.length) {
           request.body.tools = tools;
           if (request.apiType === "responses")

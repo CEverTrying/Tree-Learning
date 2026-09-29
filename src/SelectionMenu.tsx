@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Copy, Quote } from "lucide-react";
+import { markdownSelection } from "./math-clipboard";
 
 export function SelectionMenu({ children, quote, onError }: {
   children: ReactNode;
@@ -37,7 +38,7 @@ export function SelectionMenu({ children, quote, onError }: {
   return (
     <div className="conversation" onContextMenu={(event) => {
       const selection = window.getSelection();
-      const text = selection?.toString().trim();
+      const text = markdownSelection(selection).text.trim();
       const section = (node: Node | null) =>
         (node instanceof Element ? node : node?.parentElement)?.closest(".question-section, .answer-section");
       const start = section(selection?.anchorNode ?? null);

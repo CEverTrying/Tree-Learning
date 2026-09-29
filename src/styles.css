@@ -8,6 +8,8 @@
   font-size: 14px;
   font-weight: 400;
   letter-spacing: 0;
+  --font-mono: "Cascadia Mono", "Cascadia Code", "SFMono-Regular", Consolas,
+    "Liberation Mono", Menlo, Monaco, "DejaVu Sans Mono", "Courier New", monospace;
   --green: #26735c;
   --green-soft: #e8f2ec;
   --border: #e4e8e4;
@@ -364,7 +366,11 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 28px;
+  padding: 0 12px;
+  overflow-x: auto;
+}
+.topbar > * {
+  flex-shrink: 0;
 }
 .topbar > .model-status {
   margin-left: auto;
@@ -447,10 +453,8 @@ a {
 }
 .view-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border);
-  padding: 0 38px;
-  gap: 26px;
-  height: 36px;
+  align-self: stretch;
+  gap: 18px;
   flex-shrink: 0;
 }
 .view-tabs button {
@@ -460,7 +464,8 @@ a {
   position: relative;
   color: #8a958e;
   font-size: 12px;
-  padding: 0 0 13px;
+  padding: 0 4px;
+  white-space: nowrap;
 }
 .view-tabs button.active {
   color: var(--green);
@@ -468,7 +473,7 @@ a {
 .view-tabs button.active:after {
   content: "";
   position: absolute;
-  bottom: -1px;
+  bottom: 0;
   height: 2px;
   left: 0;
   right: 0;
@@ -999,11 +1004,19 @@ a {
   max-width: 100%;
 }
 .markdown code {
-  font-family: "Cascadia Code", Consolas, monospace;
+  font-family: var(--font-mono);
   background: #f0f4ef;
   padding: 2px 4px;
   border-radius: 3px;
   font-size: 12px;
+}
+.markdown pre,
+.markdown pre code {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  tab-size: 4;
 }
 .markdown pre code {
   padding: 0;
@@ -1398,9 +1411,6 @@ a {
     padding-left: 55px;
     padding-right: 55px;
   }
-  .view-tabs {
-    padding-left: 55px;
-  }
   .composer-area {
     padding-left: 47px;
     padding-right: 47px;
@@ -1438,11 +1448,8 @@ a {
   .node-scroll {
     padding: 25px 30px;
   }
-  .view-tabs {
-    padding: 0 30px;
-  }
   .topbar {
-    padding: 0 22px;
+    padding: 0 12px;
   }
 }
 @media (max-width: 759px) {
@@ -1498,8 +1505,7 @@ a {
     margin-bottom: 4px;
   }
   .view-tabs {
-    padding: 0 20px;
-    height: 36px;
+    gap: 8px;
   }
   .node-scroll {
     padding: 23px 20px 28px;
@@ -1795,3 +1801,57 @@ a {
     max-width: 100px;
   }
 }
+
+.main-branch-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid #dec391;
+  border-radius: 6px;
+  background: #fff8e8;
+  color: #986014;
+  cursor: grab;
+  font-size: 12px;
+}
+.main-branch-tool:active { cursor: grabbing; }
+.main-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 1px 5px;
+  border: 1px solid #dec391;
+  border-radius: 4px;
+  background: #fff8e8;
+  color: #986014;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 600;
+}
+.map-node.main-map-node { border-color: #a66a16; }
+.dragging-main [data-main-node-id] { outline: 1px dashed #dec391; outline-offset: -1px; }
+.main-drop-target { outline: 2px solid #a66a16 !important; outline-offset: -2px; background-color: #fff5db !important; }
+.composer-children .main-badge { margin-right: 4px; }
+
+.tree-select .main-badge { flex: 0 0 auto; }
+
+.my-projects-button {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+}
+.project-picker { padding: 4px 0; }
+
+.page-tabs { display: flex; align-items: center; flex-shrink: 0; gap: 4px; height: 36px; padding: 0 8px; border-bottom: 1px solid var(--border); background: #f5f8f5; }
+.page-tabs-list { display: flex; min-width: 0; overflow-x: auto; height: 100%; gap: 4px; }
+.page-tab { display: flex; flex: 0 0 auto; align-items: center; max-width: 220px; border-bottom: 2px solid transparent; }
+.page-tab.active { background: white; border-bottom-color: var(--green); color: var(--green); }
+.page-tab > button:first-child { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 7px 8px; font-size: 12px; }
+.page-tab > button:first-child svg { flex-shrink: 0; }
+.page-tab > button:first-child span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.page-tab-close { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 4px; }
+.page-tab-close:hover:not(:disabled) { background: #e5ece6; }
+
+.provider-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.provider-presets button[aria-pressed="true"] { border-color: var(--green); background: var(--green-soft); }

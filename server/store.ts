@@ -1,3 +1,4 @@
+import { workspaceKeys } from "../src/workspace-state";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Documents } from "./documents";
@@ -147,7 +148,7 @@ export class Store {
   command(command: Command, revision: number) {
     return this.exclusive(async () => {
       this.assertRevision(revision);
-      for (const id of this.generatingIds) {
+      for (const id of command.type === "set-main" ? [] : this.generatingIds) {
         const protectedIds = new Set(lineage(this.data, id).map((node) => node.id));
         if (command.type === "create" ? command.parentId === id : protectedIds.has(command.id))
           throw new TreeError("该节点正在生成回答或属于其上下文，请先停止对应节点的生成");
@@ -249,14 +250,7 @@ export class Store {
   }
   saveWorkspaceState(value: unknown) {
     return this.exclusive(async () => {
-      const allowed = [
-        "treelearning-navigation",
-        "treelearning-scroll",
-        "treelearning-question-drafts",
-        "treelearning-note-selected",
-        "treelearning-note-drafts",
-        "treelearning-note-width",
-      ];
+      const allowed: readonly string[] = workspaceKeys;
       if (
         !value ||
         typeof value !== "object" ||

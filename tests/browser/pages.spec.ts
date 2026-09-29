@@ -1,0 +1,31 @@
+import { test, expect } from "@playwright/test";
+import { initialTree, applyCommand } from "../../src/model";
+
+test("windows retain independent nodes, history and view across switching and reload", async ({ page, request }) => {
+  const root = initialTree();
+  const project = applyCommand(root, {type:"create",parentId:root.rootId,kind:"project",title:"多窗口项目"});
+  const a = applyCommand(project.data, {type:"create",parentId:project.selectedId,kind:"chat",title:"节点甲",question:"甲"});
+  const b = applyCommand(a.data, {type:"create",parentId:a.selectedId,kind:"chat",title:"节点乙",question:"乙"});
+  const old = await (await request.get('/api/tree')).json();
+  await request.post('/api/restore',{data:{data:b.data,revision:old.data.revision}});
+  await page.goto('/');
+  for (const name of ['多窗口项目','节点甲']) await page.getByRole('tree').getByRole('button',{name,exact:true}).click();
+  await page.getByRole('button',{name:'新建窗口',exact:true}).click();
+  await page.getByRole('tree').getByRole('button',{name:'节点乙',exact:true}).click();
+  await page.getByRole('tab',{name:'学习树图'}).click();
+  await page.getByRole('button',{name:'窗口 1：节点甲',exact:true}).click();
+  await expect(page.locator('.node-header h1')).toHaveText('节点甲');
+  await expect(page.getByRole('tab',{name:'节点内容'})).toHaveAttribute('aria-selected','true');
+  await page.getByRole('button',{name:'窗口 2：节点乙',exact:true}).click();
+  await expect(page.getByRole('tab',{name:'学习树图'})).toHaveAttribute('aria-selected','true');
+  await page.reload();
+  await expect(page.locator('.node-header h1')).toHaveText('节点乙');
+  await expect(page.locator('.page-tab')).toHaveCount(2);
+  await page.getByRole('button',{name:'后退',exact:true}).click();
+  await expect(page.locator('.node-header h1')).toHaveText('节点甲');
+  await page.getByRole('button',{name:'前进',exact:true}).click();
+  await expect(page.locator('.node-header h1')).toHaveText('节点乙');
+  await page.getByRole('button',{name:'关闭窗口 2',exact:true}).click();
+  await expect(page.locator('.node-header h1')).toHaveText('节点甲');
+  await expect(page.getByRole('button',{name:'关闭窗口 1',exact:true})).toBeDisabled();
+});

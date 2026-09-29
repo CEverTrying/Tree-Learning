@@ -10,7 +10,7 @@ import {
   Sprout,
   X,
 } from "lucide-react";
-import { childrenOf, nodeById, type TreeData, type TreeNode } from "./model";
+import { childrenOf, lineage, type TreeData, type TreeNode } from "./model";
 export const nodeIcons = {
   root: Sprout,
   project: FolderOpen,
@@ -21,14 +21,17 @@ export default function TreePanel({
   data,
   selectedId,
   select,
+  mainIds,
+  mainDropId,
 }: {
+  mainIds: Set<string>;
+  mainDropId: string | null;
   data: TreeData;
   selectedId: string;
   select: (id: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const current = nodeById(data, selectedId);
-  const parent = current.parentId ? nodeById(data, current.parentId) : null;
+  const path = lineage(data, selectedId);
   const children = childrenOf(data, selectedId).filter((node) =>
     `${node.title} ${node.question} ${node.content}`
       .toLowerCase()
@@ -45,7 +48,8 @@ export default function TreePanel({
         aria-expanded={nested ? true : undefined}
       >
         <div
-          className={`tree-row ${node.id === selectedId ? "selected" : ""}`}
+          data-main-node-id={node.id}
+          className={`tree-row ${node.id === selectedId ? "selected" : ""} ${mainDropId === node.id ? "main-drop-target" : ""}`}
           style={{ paddingLeft: Math.min(depth, 8) * 14 + 8 }}
         >
           <button
@@ -60,9 +64,11 @@ export default function TreePanel({
             className="tree-select"
             onClick={() => select(node.id)}
             title={node.title}
+            aria-label={node.title}
           >
             <Icon size={16} className={`kind-${node.kind}`} />
             <span>{node.title}</span>
+            {mainIds.has(node.id) && <span className="main-badge" aria-label="main 分支">main</span>}
             {parents.has(node.id) && (
               <LockKeyhole size={11} className="tree-lock" />
             )}
@@ -71,6 +77,12 @@ export default function TreePanel({
         {nested && <div role="group">{nested}</div>}
       </div>
     );
+  }
+  let tree: ReactNode = children.length
+    ? children.map((child) => row(child, path.length))
+    : undefined;
+  for (let depth = path.length - 1; depth >= 0; depth--) {
+    tree = row(path[depth], depth, tree);
   }
   return (
     <>
@@ -89,28 +101,10 @@ export default function TreePanel({
         )}
       </label>
       <div className="tree-section-label">
-        学习树 <span>{children.length + (parent ? 2 : 1)}</span>
+        学习树 <span>{children.length + path.length}</span>
       </div>
       <nav role="tree" aria-label="学习树" className="tree-list">
-        {parent
-          ? row(
-              parent,
-              0,
-              row(
-                current,
-                1,
-                children.length
-                  ? children.map((child) => row(child, 2))
-                  : undefined,
-              ),
-            )
-          : row(
-              current,
-              0,
-              children.length
-                ? children.map((child) => row(child, 1))
-                : undefined,
-            )}
+        {tree}
         {query && children.length === 0 && (
           <p className="muted small">没有匹配的子节点</p>
         )}

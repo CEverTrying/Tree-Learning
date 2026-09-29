@@ -1,3 +1,4 @@
+import type { WorkspaceKey } from "./workspace-state";
 let desktop = false;
 let staged: Record<string, unknown> = {};
 let pending: Promise<void> | undefined;
@@ -22,7 +23,14 @@ export async function flushWorkspace() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
-      if (!result.ok) throw new Error("工作区草稿保存失败，请稍后重试退出");
+      if (!result.ok) {
+        let detail = result.statusText || "保存接口返回错误";
+        try {
+          const body = await result.json();
+          if (typeof body.error === "string") detail = body.error;
+        } catch { /* Keep the HTTP status if the response is not JSON. */ }
+        throw new Error(`工作区草稿保存失败（HTTP ${result.status}）：${detail}`);
+      }
     } catch (error) {
       staged = { ...values, ...staged };
       throw error;
@@ -61,7 +69,7 @@ export function readLocal<T>(key: string, fallback: T): T {
     return fallback;
   }
 }
-export function writeLocal(key: string, value: unknown) {
+export function writeLocal(key: WorkspaceKey, value: unknown) {
   if (desktop) {
     staged[key] = value;
     clearTimeout(timer);

@@ -3,7 +3,6 @@ import {
   ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
-  NotebookPen,
   Search,
   ArrowUp,
   Bug,
@@ -15,6 +14,7 @@ import {
   FilePlus2,
   FileText,
   FolderPlus,
+  FolderOpen,
   GitBranch,
   Leaf,
   LoaderCircle,
@@ -35,13 +35,15 @@ import {
   X,
 } from "lucide-react";
 import Markdown from "./Markdown";
+import { deepSeekModels, deepSeekPreset, isDeepSeekApi } from "./model-providers";
+import { normalizeMathDelimiters } from "./math-markdown";
+import { copyMathSelection } from "./math-clipboard";
 import TreePanel, { nodeIcons } from "./TreePanel";
 import TreeMap from "./TreeMap";
 import NodeScroll from "./NodeScroll";
 import FileReference from "./FileReference";
 import { SelectionMenu } from "./SelectionMenu";
 import useReplySound from "./useReplySound";
-import NotesPanel, { type NotesHandle } from "./NotesPanel";
 import { QuickJump, useNavigation } from "./navigation";
 import { readLocal, writeLocal } from "./local-state";
 import { api, download, IconButton, Modal } from "./ui";
@@ -53,6 +55,7 @@ import {
   isEditable,
   kindLabel,
   lineage,
+  mainPathIds,
   modeLabels,
   nodeById,
   subtreeIds,
@@ -70,18 +73,25 @@ type Dialog =
   | { type: "project" | "file"; parentId: string }
   | { type: "edit"; id: string }
   | { type: "delete"; id: string }
-  | { type: "settings" | "context" | "debug" }
+  | { type: "settings" | "context" | "debug" | "projects" }
   | { type: "restore"; data?: TreeData; file?: File }
   | null;
 export default function App() {
+  useEffect(() => {
+    document.addEventListener("copy", copyMathSelection);
+    return () => document.removeEventListener("copy", copyMathSelection);
+  }, []);
   const playReplySound = useReplySound();
   const [data, setData] = useState<TreeData | null>(null);
   const dataRef = useRef<TreeData | null>(null);
   const navigation = useNavigation(data);
   const selectedId = navigation.selectedId;
+  useEffect(() => {
+    document.querySelector(".page-tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [navigation.activeId]);
+  const [draggingMain, setDraggingMain] = useState(false);
+  const [mainDropId, setMainDropId] = useState<string | null>(null);
   const [quickJump, setQuickJump] = useState(false);
-  const [notesOpen, setNotesOpen] = useState(false);
-  const notesRef = useRef<NotesHandle>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [settings, setSettings] = useState<Settings>({ ...defaultSettings });
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -91,7 +101,8 @@ export default function App() {
   const [generatingIds, setGeneratingIds] = useState<string[]>([]);
   const localGenerations = useRef(new Set<string>());
   const generating = generatingIds.includes(selectedId) ? selectedId : null;
-  const [tab, setTab] = useState<"node" | "map">("node");
+  const tab = navigation.view;
+  const setTab = navigation.setView;
   const [sidebar, setSidebar] = useState(false);
   const [sidebarHidden, setSidebarHidden] = useState(() =>
     readLocal<boolean>("treelearning-sidebar-hidden", false),
@@ -187,27 +198,6 @@ export default function App() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, [dialog, quickJump]);
-  async function excerpt(text: string) {
-    const snapshot = dataRef.current;
-    if (!snapshot || !text.trim()) return;
-    const current = nodeById(snapshot, selectedId);
-    const owner = lineage(snapshot, current.id).find(
-      (item) => item.kind === "project",
-    );
-    if (!owner) return;
-    setNotesOpen(true);
-    try {
-      await notesRef.current?.excerpt(
-        text,
-        current.id,
-        current.title,
-        owner.id,
-      );
-      setNotice("已摘录到项目笔记");
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "摘录失败");
-    }
-  }
   async function run<T>(operation: () => Promise<T>): Promise<T | undefined> {
     if (activeRequest.current) return;
     activeRequest.current = true;
@@ -331,6 +321,12 @@ export default function App() {
   const node = nodeById(data, selectedId || data.rootId);
   const path = lineage(data, node.id);
   const project = path.find((part) => part.kind === "project");
+  const mainIds = mainPathIds(data);
+  const mainNext = data.nodes.find((item) => item.parentId === node.id && mainIds.has(item.id));
+  const markMain = (id: string) => void run(async () => {
+    await command({ type: "set-main", id });
+    setNotice("已更新 main 分支");
+  });
   const messages = contextMessages(data, node.id);
   const children = childrenOf(data, node.id);
   const editable = isEditable(data, node.id);
@@ -341,7 +337,25 @@ export default function App() {
   );
   const Icon = nodeIcons[node.kind];
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${draggingMain ? "dragging-main" : ""}`}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes("application/x-treelearning-main")) return;
+        const target = (event.target as Element).closest<HTMLElement>("[data-main-node-id]");
+        const id = target?.dataset.mainNodeId;
+        if (!id || id === data.rootId || busy) { setMainDropId(null); return; }
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setMainDropId(id);
+      }}
+      onDrop={(event) => {
+        if (!event.dataTransfer.types.includes("application/x-treelearning-main")) return;
+        event.preventDefault();
+        const id = (event.target as Element).closest<HTMLElement>("[data-main-node-id]")?.dataset.mainNodeId;
+        setDraggingMain(false);
+        setMainDropId(null);
+        if (id && id !== data.rootId && !busy) markMain(id);
+      }}
+    >
       {sidebar && (
         <button
           className="sidebar-backdrop"
@@ -376,8 +390,18 @@ export default function App() {
             <Plus size={16} />
             新建项目
           </button>
+          <button
+            type="button"
+            className="secondary my-projects-button"
+            onClick={() => setDialog({ type: "projects" })}
+          >
+            <FolderOpen size={16} />
+            我的项目
+          </button>
         </div>
         <TreePanel
+          mainIds={mainIds}
+          mainDropId={mainDropId}
           key={node.id}
           data={data}
           selectedId={node.id}
@@ -397,8 +421,6 @@ export default function App() {
               label="导出完整备份"
               onClick={() =>
                 void run(async () => {
-                  if ((await notesRef.current?.flush()) === false)
-                    throw new Error("仍有未保存的笔记草稿，请先保存或导出草稿");
                   window.location.href = "/api/backup";
                 })
               }
@@ -417,6 +439,22 @@ export default function App() {
         </div>
       </aside>
       <div className="workspace">
+        <nav className="page-tabs" aria-label="打开的窗口">
+          <div className="page-tabs-list">
+            {navigation.pages.map((page, index) => {
+              const title = data.nodes.find(item => item.id === page.ids[page.index])?.title || "学习空间";
+              return <div className={`page-tab ${page.id === navigation.activeId ? "active" : ""}`} key={page.id}>
+                <button type="button" aria-current={page.id === navigation.activeId ? "page" : undefined}
+                  title={title} aria-label={`窗口 ${index + 1}：${title}`} onClick={() => navigation.activate(page.id)}>
+                  <FileText size={14} /><span>{title}</span>
+                </button>
+                <button type="button" className="page-tab-close" aria-label={`关闭窗口 ${index + 1}`}
+                  disabled={navigation.pages.length === 1} onClick={() => navigation.close(page.id)}><X size={13} /></button>
+              </div>;
+            })}
+          </div>
+          <button type="button" className="icon-button" title="新建窗口" aria-label="新建窗口" onClick={navigation.open}><Plus size={16} /></button>
+        </nav>
         <header className="topbar">
           <button
             type="button"
@@ -429,6 +467,12 @@ export default function App() {
           >
             {sidebarHidden ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
           </button>
+          <IconButton
+            icon={Menu}
+            label="打开侧栏"
+            className="mobile-menu"
+            onClick={() => setSidebar(true)}
+          />
           <div className="navigation-actions">
             <IconButton
               icon={ArrowLeft}
@@ -442,17 +486,33 @@ export default function App() {
               disabled={!navigation.canForward}
               onClick={() => navigation.move(1)}
             />
-            <IconButton
-              icon={Search}
-              label="快速跳转"
-              onClick={() => setQuickJump(true)}
-            />
+          </div>
+          <div className="view-tabs" role="tablist" aria-label="视图">
+            <button
+              role="tab"
+              aria-selected={tab === "node"}
+              className={tab === "node" ? "active" : ""}
+              onClick={() => setTab("node")}
+            >
+              <FileText size={15} />
+              节点内容
+            </button>
+            {project && (
+              <button
+                role="tab"
+                aria-selected={tab === "map"}
+                className={tab === "map" ? "active" : ""}
+                onClick={() => setTab("map")}
+              >
+                <Network size={15} />
+                学习树图<span>{subtreeIds(data, project.id).size}</span>
+              </button>
+            )}
           </div>
           <IconButton
-            icon={Menu}
-            label="打开侧栏"
-            className="mobile-menu"
-            onClick={() => setSidebar(true)}
+            icon={Search}
+            label="快速跳转"
+            onClick={() => setQuickJump(true)}
           />
           <button
             className={`model-status ${settings.mode}`}
@@ -478,14 +538,18 @@ export default function App() {
             label="显示上下文"
             onClick={() => setDialog({ type: "context" })}
           />
-          <IconButton
-            icon={NotebookPen}
-            label={notesOpen ? "收起项目笔记" : "打开项目笔记"}
-            onClick={() => {
-              if (notesOpen) void notesRef.current?.flush();
-              setNotesOpen(!notesOpen);
+          <button type="button" className="main-branch-tool"
+            draggable={!busy} disabled={busy}
+            aria-label="设置 main 分支"
+            title="拖到节点设为 main 分支；点击可将当前节点设为终点"
+            onDragStart={(event) => {
+              event.dataTransfer.setData("application/x-treelearning-main", "main");
+              event.dataTransfer.effectAllowed = "copy";
+              setDraggingMain(true);
             }}
-          />
+            onDragEnd={() => { setDraggingMain(false); setMainDropId(null); }}
+            onClick={() => node.kind !== "root" ? markMain(node.id) : setNotice("请将 main 拖到项目中的节点")}
+          ><GitBranch size={15} />main</button>
         </header>
         {error && (
           <div className="error-banner" role="alert">
@@ -497,13 +561,14 @@ export default function App() {
             />
           </div>
         )}
-        <div className={`workspace-body ${notesOpen ? "with-notes" : ""}`}>
+        <div className="workspace-body">
           <main className="main-pane">
-            <div className="node-header">
+            <div className={`node-header ${mainDropId === node.id ? "main-drop-target" : ""}`} data-main-node-id={node.id}>
               <div>
                 <div className={`eyebrow kind-${node.kind}`}>
                   <Icon size={15} />
                   {kindLabel[node.kind]}
+                  {mainIds.has(node.id) && <span className="main-badge">main</span>}
                   <span className={`node-state ${editable ? "leaf" : ""}`}>
                     {editable ? <Leaf size={11} /> : <LockKeyhole size={11} />}
                     {editable ? "叶节点" : "已锁定"}
@@ -528,30 +593,10 @@ export default function App() {
                 )}
               </div>
             </div>
-            <div className="view-tabs" role="tablist" aria-label="视图">
-              <button
-                role="tab"
-                aria-selected={tab === "node"}
-                className={tab === "node" ? "active" : ""}
-                onClick={() => setTab("node")}
-              >
-                <FileText size={15} />
-                节点内容
-              </button>
-              {project && (
-                <button
-                  role="tab"
-                  aria-selected={tab === "map"}
-                  className={tab === "map" ? "active" : ""}
-                  onClick={() => setTab("map")}
-                >
-                  <Network size={15} />
-                  学习树图<span>{subtreeIds(data, project.id).size}</span>
-                </button>
-              )}
-            </div>
             {tab === "map" && project ? (
               <TreeMap
+                mainIds={mainIds}
+                mainDropId={mainDropId}
                 data={data}
                 projectId={project.id}
                 selectedId={node.id}
@@ -560,7 +605,8 @@ export default function App() {
             ) : (
               <NodeScroll
                 nodeId={node.id}
-                parentId={node.parentId}
+                parentId={mainIds.has(node.id) && node.parentId && !mainIds.has(node.parentId) ? null : node.parentId}
+                nextId={mainNext?.id ?? null}
                 disabled={!!dialog || sidebar}
                 onParent={select}
               >
@@ -578,11 +624,6 @@ export default function App() {
                       <div className="section-caption">
                         <span className="avatar user">我</span>
                         <strong>问题</strong>
-                        <IconButton
-                          icon={NotebookPen}
-                          label="摘录问题到笔记"
-                          onClick={() => void excerpt(node.question)}
-                        />
                         {editable && (
                           <div className="answer-actions">
                             <IconButton
@@ -611,19 +652,13 @@ export default function App() {
                           <span className="source-tag">已编辑</span>
                         )}
                         <div className="answer-actions">
-                          <IconButton
-                            icon={NotebookPen}
-                            label="摘录回复到笔记"
-                            disabled={!node.answer}
-                            onClick={() => void excerpt(node.answer)}
-                          />
                           {node.answer && (
                             <IconButton
                               icon={Copy}
                               label="复制回复"
                               onClick={() =>
                                 void navigator.clipboard
-                                  .writeText(node.answer)
+                                  .writeText(normalizeMathDelimiters(node.answer))
                                   .then(() => setNotice("回复已复制"))
                                   .catch(() => setError("复制失败"))
                               }
@@ -785,6 +820,8 @@ export default function App() {
                         return (
                           <button
                             key={child.id}
+                            data-main-node-id={child.id}
+                            className={mainDropId === child.id ? "main-drop-target" : ""}
                             onClick={() => select(child.id)}
                           >
                             <span className={`child-icon kind-${child.kind}`}>
@@ -792,6 +829,7 @@ export default function App() {
                             </span>
                             <span className="child-text">
                               <strong>{child.title}</strong>
+                              {mainIds.has(child.id) && <span className="main-badge">main</span>}
                               <small>
                                 {kindLabel[child.kind]} ·{" "}
                                 {child.kind === "chat"
@@ -842,10 +880,13 @@ export default function App() {
                       <button
                         type="button"
                         key={child.id}
+                        data-main-node-id={child.id}
+                        className={mainDropId === child.id ? "main-drop-target" : ""}
                         title={child.title}
                         aria-label={child.title}
                         onClick={() => select(child.id)}
                       >
+                        {mainIds.has(child.id) && <span className="main-badge">main</span>}
                         {[...child.title].slice(0, 6).join("")}
                         {[...child.title].length > 6 ? "…" : ""}
                       </button>
@@ -945,23 +986,7 @@ export default function App() {
               </form>
             )}
           </main>
-          <NotesPanel
-            ref={notesRef}
-            data={data}
-            projectId={project?.id}
-            open={notesOpen}
-            close={() => setNotesOpen(false)}
-            onData={replaceData}
-            navigate={select}
-            quote={(title, content) => {
-              setDrafts((old) => ({
-                ...old,
-                [node.id]: `${old[node.id] || ""}\n\n引用笔记：${title}\n\n${content}\n\n`,
-              }));
-              setNotice("笔记快照已加入问题草稿");
-              if (window.innerWidth < 900) setNotesOpen(false);
-            }}
-          />
+
         </div>
       </div>
       {quickJump && (
@@ -992,7 +1017,7 @@ export default function App() {
       {dialog && (
         <Modal
           title={
-            dialog.type === "project"
+            dialog.type === "projects" ? "我的项目" : dialog.type === "project"
               ? "新建项目"
               : dialog.type === "file"
                 ? "添加文件节点"
@@ -1013,6 +1038,28 @@ export default function App() {
           }}
           wide={dialog.type === "context" || dialog.type === "debug"}
         >
+          {dialog.type === "projects" && (
+            <div className="children-list project-picker">
+              {data.nodes.filter((item) => item.kind === "project").map((item) => (
+                <button key={item.id} type="button" aria-label={item.title}
+                  onClick={() => { select(item.id); setTab("node"); setDialog(null); }}>
+                  <span className="child-icon kind-project"><FolderOpen size={18} /></span>
+                  <span className="child-text"><strong>{item.title}</strong></span>
+                  <ChevronRight size={15} />
+                </button>
+              ))}
+              {!data.nodes.some((item) => item.kind === "project") && (
+                <div className="empty-children">
+                  <FolderOpen size={24} />
+                  <span>还没有项目</span>
+                  <button type="button" className="text-button"
+                    onClick={() => setDialog({ type: "project", parentId: data.rootId })}>
+                    创建第一个项目
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           {(dialog.type === "project" ||
             dialog.type === "file" ||
             dialog.type === "edit") && (
@@ -1178,10 +1225,6 @@ export default function App() {
                   onClick={() =>
                     void run(async () => {
                       const body = new FormData();
-                      if ((await notesRef.current?.flush()) === false)
-                        throw new Error(
-                          "仍有未保存的笔记草稿，请先保存或导出草稿",
-                        );
                       if (dialog.file) body.append("file", dialog.file);
                       body.append(
                         "revision",
@@ -1427,6 +1470,16 @@ function SettingsForm({
           </button>
         ))}
       </div>
+      <div className="provider-presets" role="group" aria-label="DeepSeek 快速配置">
+        {deepSeekModels.map((model) => (
+          <button type="button" className="secondary" key={model.id}
+            aria-pressed={isDeepSeekApi(settings.baseUrl) && settings.model === model.id}
+            onClick={() => setSettings(deepSeekPreset(settings, model.id))}>{model.label}</button>
+        ))}
+      </div>
+      {isDeepSeekApi(settings.baseUrl) && <p className="muted small">
+        DeepSeek 使用普通回答模式。开启联网搜索后，由 Tavily 提供网页检索，需单独填写 Tavily 密钥。
+      </p>}
       <label>
         接口类型
         <select
@@ -1446,7 +1499,8 @@ function SettingsForm({
           type="url"
           placeholder="https://api.example.com/v1"
           value={settings.baseUrl}
-          onChange={(e) => patch({ baseUrl: e.target.value })}
+          onChange={(e) => patch({ baseUrl: e.target.value,
+            ...(isDeepSeekApi(e.target.value) ? { webProvider: "tavily" as const } : {}) })}
         />
       </label>
       <label>
@@ -1502,7 +1556,7 @@ function SettingsForm({
               })
             }
           >
-            <option value="openai">OpenAI 内置搜索（Responses API）</option>
+            <option value="openai" disabled={isDeepSeekApi(settings.baseUrl)}>OpenAI 内置搜索（Responses API）</option>
             <option value="tavily">Tavily</option>
           </select>
         </label>

@@ -37,6 +37,7 @@ export type TreeNode = {
   createdAt: string;
   updatedAt: string;
   sealed: boolean;
+  mainTipId?: string;
 };
 export type TreeData = {
   version: 1;
@@ -105,7 +106,8 @@ export type Command =
       fileRef?: FileRef;
     }
   | { type: "edit"; id: string; patch: Partial<Editable> }
-  | { type: "delete"; id: string };
+  | { type: "delete"; id: string }
+  | { type: "set-main"; id: string };
 
 export const defaultSettings: Settings = {
   webEnabled: false,
@@ -211,6 +213,12 @@ export function lineage(data: TreeData, id: string): TreeNode[] {
   return path;
 }
 
+// A fixed endpoint keeps new descendants outside main until explicitly selected.
+export function mainPathIds(data: TreeData): Set<string> {
+  return new Set(data.nodes.filter((node) => node.kind === "project" && node.mainTipId)
+    .flatMap((project) => lineage(data, project.mainTipId!).filter((node) => node.kind !== "root").map((node) => node.id)));
+}
+
 // File bodies and reading audit snapshots are lazy; only path metadata is sent.
 export function contextMessages(
   data: TreeData,
@@ -285,9 +293,18 @@ export function applyCommand(
     selectedId = id;
   } else {
     const node = nodeById(next, command.id);
-    if (command.type === "delete") {
+    if (command.type === "set-main") {
+      const project = lineage(next, node.id).find((item) => item.kind === "project");
+      if (!project) throw new TreeError("请将 main 拖到项目中的节点");
+      project.mainTipId = node.id;
+      selectedId = node.id;
+    } else if (command.type === "delete") {
       if (node.kind === "root") throw new TreeError("不能删除根节点");
       const removed = subtreeIds(next, node.id);
+      for (const project of next.nodes) {
+        if (project.mainTipId && removed.has(project.mainTipId) && !removed.has(project.id))
+          project.mainTipId = node.parentId!;
+      }
       next.nodes = next.nodes.filter((n) => !removed.has(n.id));
       if (next.notes)
         next.notes = next.notes.filter((note) => !removed.has(note.projectId));
@@ -526,4 +543,10 @@ export function validateTree(value: unknown): asserts value is TreeData {
   }
   if (seen.size !== data.nodes.length)
     throw new TreeError("存在循环或未连接的节点");
+  for (const node of data.nodes) {
+    if (node.mainTipId !== undefined && (
+      node.kind !== "project" || typeof node.mainTipId !== "string" ||
+      !index.has(node.mainTipId) || !lineage(data, node.mainTipId).some((item) => item.id === node.id)
+    )) throw new TreeError("main 分支终点必须属于当前项目");
+  }
 }

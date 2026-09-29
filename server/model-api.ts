@@ -1,3 +1,4 @@
+import { isDeepSeekApi } from "../src/model-providers";
 import type { Settings } from "../src/model";
 
 type TextMessage = { role: "user" | "assistant"; content: string };
@@ -175,6 +176,12 @@ export function createModelRequest(
           messages: [{ role: "system", content: instructions }, ...input],
           stream: false,
         };
+  if (isDeepSeekApi(settings.baseUrl)) {
+    // History stores final answers, not earlier reasoning traces required by
+    // DeepSeek thinking-mode tool calls. Use standard mode for complete replay.
+    if (apiType === "chat-completions") body.thinking = { type: "disabled" };
+    else body.reasoning = { effort: "none" };
+  }
   return { url, body, apiType };
 }
 
@@ -231,4 +238,18 @@ export function readModelResponse(
   throw new ModelProtocolError(
     "模型没有返回文本，请检查接口类型与模型兼容性。",
   );
+}
+
+export function compatibleTools(baseUrl: string, tools: Record<string, unknown>[]) {
+  if (!isDeepSeekApi(baseUrl) || new URL(baseUrl).pathname.startsWith("/beta")) return tools;
+  // DeepSeek strict schemas require the beta endpoint; normal tools work on the stable API.
+  return tools.map(tool => {
+    if (tool.type !== "function") return tool;
+    if (tool.function) {
+      const { strict: _strict, ...fn } = object(tool.function);
+      return { ...tool, function: fn };
+    }
+    const { strict: _strict, ...fn } = tool;
+    return fn;
+  });
 }

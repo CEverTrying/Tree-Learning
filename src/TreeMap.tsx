@@ -20,17 +20,22 @@ type MapData = {
   active: boolean;
   onPath: boolean;
   sealed: boolean;
+  id: string;
+  main: boolean;
+  dropTarget: boolean;
 };
 function MapNode({ data }: NodeProps<Node<MapData>>) {
   const Icon = nodeIcons[data.kind];
   return (
     <div
-      className={`map-node ${data.active ? "active" : ""} ${data.onPath ? "on-path" : ""}`}
+      data-main-node-id={data.id}
+      className={`map-node ${data.active ? "active" : ""} ${data.onPath ? "on-path" : ""} ${data.main ? "main-map-node" : ""} ${data.dropTarget ? "main-drop-target" : ""}`}
     >
       <Handle type="target" position={Position.Left} />
       <div className={`map-kind kind-${data.kind}`}>
         <Icon size={15} />
         {kindLabel[data.kind]}
+        {data.main && <span className="main-badge">main</span>}
         {data.sealed && <LockKeyhole size={12} />}
       </div>
       <strong>{data.title}</strong>
@@ -44,7 +49,11 @@ export default function TreeMap({
   projectId,
   selectedId,
   select,
+  mainIds,
+  mainDropId,
 }: {
+  mainIds: Set<string>;
+  mainDropId: string | null;
   data: TreeData;
   projectId: string;
   selectedId: string;
@@ -85,6 +94,9 @@ export default function TreeMap({
       type: "topic",
       position: positions.get(n.id)!,
       data: {
+        id: n.id,
+        main: mainIds.has(n.id),
+        dropTarget: mainDropId === n.id,
         title: n.title,
         kind: n.kind,
         active: n.id === selectedId,
@@ -100,12 +112,12 @@ export default function TreeMap({
         target: n.id,
         type: "smoothstep",
         style: {
-          stroke: ancestors.has(n.id) ? "#398167" : "#d2d8d5",
-          strokeWidth: ancestors.has(n.id) ? 2 : 1.4,
+          stroke: mainIds.has(n.id) ? "#a66a16" : ancestors.has(n.id) ? "#398167" : "#d2d8d5",
+          strokeWidth: mainIds.has(n.id) ? 3 : ancestors.has(n.id) ? 2 : 1.4,
         },
       }));
     return { nodes, edges };
-  }, [data, selectedId, projectId]);
+  }, [data, selectedId, projectId, mainIds, mainDropId]);
   return (
     <div className="tree-map">
       <ReactFlow

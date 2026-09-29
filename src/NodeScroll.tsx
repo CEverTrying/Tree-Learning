@@ -4,12 +4,14 @@ import { readLocal, writeLocal } from "./local-state";
 export default function NodeScroll({
   nodeId,
   parentId,
+  nextId,
   disabled,
   onParent,
   children,
 }: {
   nodeId: string;
   parentId: string | null;
+  nextId: string | null;
   disabled: boolean;
   onParent: (id: string) => void;
   children: ReactNode;
@@ -37,21 +39,23 @@ export default function NodeScroll({
   }, [nodeId]);
   const navigate = useRef(onParent);
   navigate.current = onParent;
-  const wheel = useRef({ last: 0, distance: 0, count: 0, locked: false });
+  const wheel = useRef({ last: 0, distance: 0, count: 0, locked: false, direction: 0 });
 
   useEffect(() => {
     const pane = element.current!;
     wheel.current.distance = 0;
     wheel.current.count = 0;
-    let touch: { x: number; y: number; distance: number } | null = null;
-    function canLeave(target: EventTarget | null) {
-      if (disabled || !parentId || pane.scrollTop > 1) return false;
+    let touch: { x: number; y: number; distance: number; direction: number } | null = null;
+    function canLeave(target: EventTarget | null, direction: number) {
+      if (disabled || !(direction < 0 ? parentId : nextId)) return false;
+      const atBoundary = (el: Element) => direction < 0
+        ? el.scrollTop <= 1
+        : el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+      if (!atBoundary(pane)) return false;
       let child = target instanceof Element ? target : null;
       while (child && child !== pane) {
-        if (child.matches("input, textarea, select, [contenteditable='true']"))
-          return false;
-        if (child.scrollTop > 0 && child.scrollHeight > child.clientHeight)
-          return false;
+        if (child.matches("input, textarea, select, [contenteditable='true']")) return false;
+        if (child.scrollHeight > child.clientHeight && !atBoundary(child)) return false;
         child = child.parentElement;
       }
       return true;
@@ -65,11 +69,17 @@ export default function NodeScroll({
         state.locked = false;
       }
       state.last = time;
+      const direction = Math.sign(event.deltaY);
+      if (state.direction !== direction) {
+        state.distance = 0;
+        state.count = 0;
+      }
+      state.direction = direction;
       if (
         event.ctrlKey ||
         Math.abs(event.deltaX) >= Math.abs(event.deltaY) ||
-        event.deltaY >= 0 ||
-        !canLeave(event.target)
+        direction === 0 ||
+        !canLeave(event.target, direction)
       ) {
         state.distance = 0;
         state.count = 0;
@@ -83,12 +93,12 @@ export default function NodeScroll({
           : event.deltaMode === 2
             ? pane.clientHeight
             : 1;
-      state.distance += -event.deltaY * unit;
+      state.distance += Math.abs(event.deltaY) * unit;
       state.count++;
       if (state.count >= 2 && state.distance >= 180) {
         // Keep the lock across node changes until the wheel gesture ends.
         state.locked = true;
-        navigate.current(parentId!);
+        navigate.current(direction < 0 ? parentId! : nextId!);
       }
     }
     function onTouchStart(event: TouchEvent) {
@@ -98,6 +108,7 @@ export default function NodeScroll({
               x: event.touches[0].clientX,
               y: event.touches[0].clientY,
               distance: 0,
+              direction: 0,
             }
           : null;
     }
@@ -111,15 +122,18 @@ export default function NodeScroll({
       const dx = point.clientX - touch.x;
       touch.x = point.clientX;
       touch.y = point.clientY;
-      if (dy <= 0 || Math.abs(dx) >= dy || !canLeave(event.target)) {
+      const direction = -Math.sign(dy);
+      if (touch.direction !== direction) touch.distance = 0;
+      touch.direction = direction;
+      if (direction === 0 || Math.abs(dx) >= Math.abs(dy) || !canLeave(event.target, direction)) {
         touch.distance = 0;
         return;
       }
       if (event.cancelable) event.preventDefault();
-      touch.distance += dy;
+      touch.distance += Math.abs(dy);
       if (touch.distance >= 90) {
         touch = null;
-        navigate.current(parentId!);
+        navigate.current(direction < 0 ? parentId! : nextId!);
       }
     }
     function onTouchEnd() {
@@ -137,10 +151,10 @@ export default function NodeScroll({
       pane.removeEventListener("touchend", onTouchEnd);
       pane.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [nodeId, parentId, disabled]);
+  }, [nodeId, parentId, nextId, disabled]);
 
   return (
-    <div className="node-scroll" key={nodeId} ref={element}>
+    <div className="node-scroll" data-main-node-id={nodeId} key={nodeId} ref={element}>
       {children}
     </div>
   );

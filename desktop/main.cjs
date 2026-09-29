@@ -12,7 +12,31 @@ app.setAppUserModelId(appId);
 const directory = process.env.TREELEARNING_DATA_DIR || app.getPath("userData");
 let service;
 let window;
-let closing = false;
+const createQuitController = require("./quit.cjs");
+const exitController = createQuitController({
+  flush: () => window && !window.isDestroyed()
+    ? window.webContents.executeJavaScript("window.treeLearningFlush?.()")
+    : undefined,
+  close: () => service?.close(),
+  confirmDiscard: async () => {
+    const options = {
+      type: "warning",
+      title: "退出 TreeLearning",
+      message: "草稿保存失败，是否放弃未保存的内容并退出？",
+      detail: "放弃并退出将丢失尚未保存的内容。选择取消可返回继续编辑。",
+      buttons: ["放弃并退出", "取消"],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    };
+    const result = window && !window.isDestroyed()
+      ? await dialog.showMessageBox(window, options)
+      : await dialog.showMessageBox(options);
+    return result.response === 0;
+  },
+  quit: () => app.quit(),
+  onError: logError,
+});
 
 function logError(error) {
   try {
@@ -111,7 +135,7 @@ async function createWindow() {
   });
   window.webContents.on("render-process-gone", (_event, details) => {
     logError(`Renderer exited: ${details.reason}`);
-    if (!closing)
+    if (!exitController.ready)
       dialog.showErrorBox(
         "TreeLearning 窗口已停止",
         "请重新打开树学，已保存的学习数据会保留。",
@@ -124,7 +148,7 @@ async function createWindow() {
     window = null;
   });
   window.on("close", (event) => {
-    if (!closing) {
+    if (!exitController.ready) {
       event.preventDefault();
       app.quit();
     }
@@ -147,7 +171,7 @@ else {
       if (window.isMinimized()) window.restore();
       window.show();
       window.focus();
-    } else if (service && !closing) void createWindow().catch(startupError);
+    } else if (service && !exitController.ready) void createWindow().catch(startupError);
   });
   app
     .whenReady()
@@ -161,7 +185,7 @@ else {
       createMenu();
       await createWindow();
       app.on("activate", () => {
-        if (!window && !closing) void createWindow().catch(startupError);
+        if (!window && !exitController.ready) void createWindow().catch(startupError);
       });
     })
     .catch(startupError);
@@ -169,23 +193,6 @@ else {
     if (process.platform !== "darwin") app.quit();
   });
   app.on("before-quit", (event) => {
-    if (!service || closing) return;
-    event.preventDefault();
-    closing = true;
-    Promise.resolve(
-      window && !window.isDestroyed()
-        ? window.webContents.executeJavaScript("window.treeLearningFlush?.()")
-        : undefined,
-    )
-      .then(() => service.close())
-      .then(() => app.quit())
-      .catch((error) => {
-        closing = false;
-        logError(error);
-        dialog.showErrorBox(
-          "尚未退出",
-          "草稿保存未完成，请稍后重试退出。\n" + error.message,
-        );
-      });
+    if (service) void exitController.request(event);
   });
 }
